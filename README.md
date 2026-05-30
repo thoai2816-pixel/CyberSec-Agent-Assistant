@@ -1,82 +1,100 @@
-<div align="center">
-  <a href="https://www.langchain.com/langgraph">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset=".github/images/logo-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset=".github/images/logo-light.svg">
-      <img alt="LangGraph Logo" src=".github/images/logo-dark.svg" width="50%">
-    </picture>
-  </a>
-</div>
+# CyberSec-Agent-Assistant
 
-<div align="center">
-  <h3>Low-level orchestration framework for building stateful agents.</h3>
-</div>
+## 项目名称
 
-<div align="center">
-  <a href="https://opensource.org/licenses/MIT" target="_blank"><img src="https://img.shields.io/pypi/l/langgraph" alt="PyPI - License"></a>
-  <a href="https://pypistats.org/packages/langgraph" target="_blank"><img src="https://img.shields.io/pepy/dt/langgraph" alt="PyPI - Downloads"></a>
-  <a href="https://pypi.org/project/langgraph/" target="_blank"><img src="https://img.shields.io/pypi/v/langgraph.svg?label=%20" alt="Version"></a>
-  <a href="https://x.com/langchain_oss" target="_blank"><img src="https://img.shields.io/twitter/url/https/twitter.com/langchain_oss.svg?style=social&label=Follow%20%40LangChain" alt="Twitter / X"></a>
-</div>
+**CyberSec-Agent-Assistant**：网络安全知识检索与告警研判 Agent 原型
 
-<br>
+## 项目定位
 
-Trusted by companies shaping the future of agents – including Klarna, Replit, Elastic, and more – LangGraph is a low-level orchestration framework for building, managing, and deploying long-running, stateful agents.
+本项目是一个基于 LangGraph 实现的轻量级网络安全 AI Agent 原型。面向本地模拟环境，不调用真实扫描器、不访问真实网络目标、不执行攻击行为，仅用于演示 AI Agent 在网络安全辅助分析场景中的任务理解、工具调用、知识检索、告警研判和报告生成能力。
 
-```bash
-pip install -U langgraph
+## 项目背景
+
+随着 AI Agent 在网络安全领域的应用不断深入，Agent 在执行安全分析任务时需要调用多种工具、访问安全知识库、分析告警日志并生成处置建议。这一过程对 Agent 的任务编排、工具调用治理、权限控制和操作审计提出了新的要求。
+
+本项目作为创新资助项目“面向网络安全领域 AI 智能体的身份和访问管理研究”的前期基础原型，重点验证 Agent 的基础工程能力，为后续深入研究 Agent IAM 问题提供实践基础。
+
+## 为什么使用 LangGraph
+
+- **显式工作流编排**：StateGraph 允许以节点和边的形式明确定义 Agent 的工作流，便于理解、调试和审计每一步决策过程。
+- **状态管理**：通过 TypedDict 定义共享状态，节点间数据传递清晰可控。
+- **可扩展性**：节点、条件边、子图等机制支持从小型原型到复杂生产级 Agent 的平滑演进。
+- **社区生态**：LangGraph 是 LangChain 生态中的核心框架，有丰富的工具集成和社区支持。
+
+## 系统架构
+
+```
+用户输入 (user_query)
+    │
+    ▼
+┌─────────────────────────────────────────────┐
+│          LangGraph StateGraph               │
+│                                             │
+│  receive_user_query ──► classify_task       │
+│                               │              │
+│                               ▼              │
+│                         plan_tool_call       │
+│                               │              │
+│                               ▼              │
+│                      retrieve_knowledge      │
+│                               │              │
+│                               ▼              │
+│                         execute_tool         │
+│                               │              │
+│                               ▼              │
+│                       generate_answer        │
+│                               │              │
+│                               ▼              │
+│                       write_tool_log         │
+│                               │              │
+│                               ▼              │
+│                       final_response         │
+└─────────────────────────────────────────────┘
+    │
+    ▼
+最终回答 + 审计日志 (tool_calls.jsonl)
 ```
 
-> [!TIP]
-> If you're looking to quickly build agents, check out **[Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview)** — a higher-level package built on LangGraph for agents that can plan, use subagents, and leverage file systems for complex tasks.
+### 核心模块
 
-For an equivalent JS/TS library, check out [LangGraph.js](https://github.com/langchain-ai/langgraphjs) and the [JS docs](https://docs.langchain.com/oss/javascript/langgraph/overview).
+| 模块 | 文件 | 职责 |
+|------|------|------|
+| 状态定义 | `state.py` | 定义 AgentState TypedDict |
+| 工作流编排 | `graph.py` | LangGraph StateGraph 构建与节点实现 |
+| 任务规划 | `planner.py` | Mock planner，基于关键词进行任务分类和工具选择 |
+| 本地工具 | `tools.py` | 5 个本地模拟工具（CVE 查询、攻击类型检索、日志分析、报告生成、工具列表） |
+| 知识检索 | `rag.py` | 基于关键词的本地知识库检索 |
+| 报告生成 | `report_generator.py` | 安全事件研判报告生成 |
+| 审计日志 | `audit_logger.py` | 工具调用过程 JSONL 日志记录 |
+| Demo 运行 | `demo.py` | 5 个演示场景的批量运行 |
+| 测试 | `test_demo.py` | 13 个测试用例 |
 
-## Why use LangGraph?
+## 工作流说明
 
-LangGraph provides low-level supporting infrastructure for *any* long-running, stateful workflow or agent:
+Agent 工作流包含 8 个节点，按以下顺序执行：
 
-- **[Durable execution](https://docs.langchain.com/oss/python/langgraph/durable-execution)** — Build agents that persist through failures and can run for extended periods, automatically resuming from exactly where they left off.
-- **[Human-in-the-loop](https://docs.langchain.com/oss/python/langgraph/interrupts)** — Seamlessly incorporate human oversight by inspecting and modifying agent state at any point during execution.
-- **[Comprehensive memory](https://docs.langchain.com/oss/python/langgraph/memory)** — Create truly stateful agents with both short-term working memory for ongoing reasoning and long-term persistent memory across sessions.
-- **[Debugging with LangSmith](https://www.langchain.com/langsmith)** — Gain deep visibility into complex agent behavior with visualization tools that trace execution paths, capture state transitions, and provide detailed runtime metrics.
-- **[Production-ready deployment](https://docs.langchain.com/langsmith/deployments)** — Deploy sophisticated agent systems confidently with scalable infrastructure designed to handle the unique challenges of stateful, long-running workflows.
+1. **receive_user_query**：接收用户输入，初始化会话 ID。
+2. **classify_task**：基于关键词判断任务类型（cve_query / alert_analysis / attack_type_lookup / report_generation / general_security_question）。
+3. **plan_tool_call**：根据任务类型选择需要调用的工具和参数。
+4. **retrieve_knowledge**：从本地知识库检索相关内容。
+5. **execute_tool**：执行所选本地模拟工具。
+6. **generate_answer**：汇总工具输出和知识库内容，生成结构化回答。
+7. **write_tool_log**：将本次工具调用过程写入 JSONL 审计日志。
+8. **final_response**：输出最终结果。
 
-> [!TIP]
-> For developing, debugging, and deploying AI agents and LLM applications, see [LangSmith](https://docs.langchain.com/langsmith/home).
+## 本地知识库说明
 
-## LangGraph ecosystem
+| 文件 | 内容 | 条目数 |
+|------|------|--------|
+| `knowledge_base/cve_samples.json` | 模拟 CVE 漏洞信息（Log4Shell, EternalBlue, MOVEit, XZ Utils, BlueKeep） | 5 条 |
+| `knowledge_base/attack_types.md` | 常见攻击类型说明（SSH 暴力破解、SQL 注入、XSS、命令注入、横向移动、WebShell、凭证窃取、可疑外联、可疑 PowerShell） | 9 类 |
+| `knowledge_base/security_logs.json` | 模拟安全日志（SSH 登录失败、SQL 注入请求、PowerShell 编码命令、文件上传、外联连接） | 5 条 |
 
-While LangGraph can be used standalone, it also integrates seamlessly with any LangChain product, giving developers a full suite of tools for building agents.
+注意：以上数据仅用于本地演示，不需要访问外部数据源。
 
-To improve your LLM application development, pair LangGraph with:
+## 工具列表说明
 
-- [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) – Build agents that can plan, use subagents, and leverage file systems for complex tasks.
-- [LangChain](https://docs.langchain.com/oss/python/langchain/overview) – Provides integrations and composable components to streamline LLM application development.
-- [LangSmith](https://www.langchain.com/langsmith) – Helpful for agent evals and observability. Debug poor-performing LLM app runs, evaluate agent trajectories, gain visibility in production, and improve performance over time.
-- [LangSmith Deployment](https://docs.langchain.com/langsmith/deployments) – Deploy and scale agents effortlessly with a purpose-built deployment platform for long-running, stateful workflows. Discover, reuse, configure, and share agents across teams – and iterate quickly with visual prototyping in [LangSmith Studio](https://docs.langchain.com/langsmith/studio).
-
----
-
-## Documentation
-
-- [docs.langchain.com](https://docs.langchain.com/oss/python/langgraph/overview) – Comprehensive documentation, including conceptual overviews and guides
-- [reference.langchain.com/python/langgraph](https://reference.langchain.com/python/langgraph) – API reference docs for LangGraph packages
-- [LangGraph Quickstart](https://docs.langchain.com/oss/python/langgraph/quickstart) – Get started building with LangGraph
-- [Chat LangChain](https://chat.langchain.com/) – Chat with the LangChain documentation and get answers to your questions
-
-**Discussions**: Visit the [LangChain Forum](https://forum.langchain.com) to connect with the community and share all of your technical questions, ideas, and feedback.
-
-## Additional resources
-
-- **[Guides](https://docs.langchain.com/oss/python/learn)** – Quick, actionable code snippets for topics such as streaming, adding memory & persistence, and design patterns (e.g. branching, subgraphs, etc.).
-- **[LangChain Academy](https://academy.langchain.com/courses/intro-to-langgraph)** – Learn the basics of LangGraph in our free, structured course.
-- **[Case studies](https://www.langchain.com/built-with-langgraph)** – Hear how industry leaders use LangGraph to ship AI applications at scale.
-- [Contributing Guide](https://docs.langchain.com/oss/python/contributing/overview) – Learn how to contribute to LangChain projects and find good first issues.
-- [Code of Conduct](https://github.com/langchain-ai/langchain/?tab=coc-ov-file) – Our community guidelines and standards for participation.
-
----
-
-## Acknowledgements
-
-LangGraph is inspired by [Pregel](https://research.google/pubs/pub37252/) and [Apache Beam](https://beam.apache.org/). The public interface draws inspiration from [NetworkX](https://networkx.org/documentation/latest/). LangGraph is built by LangChain Inc, the creators of LangChain, but can be used without LangChain.
+| 工具 | 功能 | 输入 | 输出 |
+|------|------|------|------|
+| `search_cve_info` | 查询 CVE 漏洞信息 | cve_id | CVE 详情（名称、严重等级、影响、缓解措施等） |
+| `lookup_attack_type` | 检索攻击类型说明 | keyword | 攻击类型描述、风险等级、处置建议 |
